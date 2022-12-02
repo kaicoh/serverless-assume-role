@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "serverless": "^3.25.1",
+    "serverless-assume-role": "file:.."
+  }
+}
