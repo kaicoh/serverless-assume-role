@@ -19,7 +19,7 @@
     "serverless-plugin"
   ],
   "author": "kaicoh <sumireminami@gmail.com> (https://github.com/kaicoh)",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/kaicoh/serverless-assume-role/issues"
   },
