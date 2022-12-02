@@ -12,8 +12,13 @@
     "type": "git",
     "url": "git+https://github.com/kaicoh/serverless-assume-role.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "aws",
+    "aws-iam",
+    "serverless",
+    "serverless-plugin"
+  ],
+  "author": "kaicoh <sumireminami@gmail.com> (https://github.com/kaicoh)",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/kaicoh/serverless-assume-role/issues"
