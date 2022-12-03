@@ -202,14 +202,12 @@ export default class ServerlessAssumeRole {
       this.params
     )
 
-    this.log.info('######### AssumeRole Response #########')
-    this.log.info(response)
-    this.log.info('#######################################')
-
     const { Credentials } = response
     if (Credentials === undefined) {
       throw new Error('Failed to get credentials from assume role request')
     }
+
+    this.log.info('AssumeRole action succeeded')
 
     /*
      * Create new credentials
@@ -229,10 +227,6 @@ export default class ServerlessAssumeRole {
     if (_get(this.serverless, ['service', 'provider', 'deploymentBucketObject', 'serverSideEncryption']) === 'aws:kms') {
       credentials.signatureVersion = 'v4'
     }
-
-    this.log.info('######### New Credentials #########')
-    this.log.info(credentials)
-    this.log.info('###################################')
 
     /*
      * Overwrite provider's credentials
