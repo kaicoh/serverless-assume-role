@@ -6,7 +6,7 @@ provider:
   runtime: nodejs16.x
 
 plugins:
-  - serverless-assume-role
+  - ../dist/index.js
 
 functions:
   hello:

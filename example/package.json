@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "prestart": "cd .. && npm run build",
+    "start": "npx sls assumerole:test"
+  },
   "devDependencies": {
     "serverless": "^3.25.1",
     "serverless-assume-role": "file:.."

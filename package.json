@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/kaicoh/serverless-assume-role#readme",
   "dependencies": {
+    "@aws-sdk/client-sts": "^3.223.0",
     "serverless": "^3.25.1"
   },
   "devDependencies": {
@@ -40,7 +41,7 @@
     "ts-jest": "^29.0.3",
     "typescript": "^4.9.3"
   },
-  "files":[
+  "files": [
     "dist",
     "src",
     "!src/__tests__",
