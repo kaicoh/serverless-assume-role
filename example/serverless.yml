@@ -8,6 +8,12 @@ provider:
 plugins:
   - ../dist/index.js
 
+custom:
+  assumeRole:
+    roleArn: arn:aws:iam::012345678901:role/your-role-name
+    externalId: my-external-id
+    roleSessionName: serverless-framework-deployment
+
 functions:
   hello:
     handler: handler.hello

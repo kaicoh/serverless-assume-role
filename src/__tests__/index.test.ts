@@ -5,21 +5,6 @@ import { AssumeRoleInputs, ServerlessV3, ServerlessUtils } from '../types'
 describe('ServerlessAssumeRole', () => {
   let utils: ServerlessUtils
 
-  function mockServerless (config: AssumeRoleInputs): ServerlessV3 {
-    const sls: any = {
-      getProvider: jest.fn(() => ({
-        getCredentials: jest.fn(() => ({}))
-      })),
-      service: {
-        custom: {
-          assumeRole: config
-        }
-      },
-      classes: { Error }
-    }
-    return sls
-  }
-
   beforeEach(() => {
     utils = {
       log: {
@@ -34,7 +19,23 @@ describe('ServerlessAssumeRole', () => {
     }
   })
 
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
   describe('constructor', () => {
+    function mockServerless (config: AssumeRoleInputs): ServerlessV3 {
+      const sls: any = {
+        service: {
+          custom: {
+            assumeRole: config
+          }
+        },
+        classes: { Error }
+      }
+      return sls
+    }
+
     function subject (config: any): ServerlessAssumeRole {
       const serverless = mockServerless(config)
       const options: Serverless.Options = { stage: 'dev', region: 'local' }
@@ -176,10 +177,6 @@ describe('ServerlessAssumeRole', () => {
     })
 
     it('throws an error if "tags" is neither undefined nor an array of object having key and value field', () => {
-      /*
-       * PolicyDectatorType
-       * See: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-sts/interfaces/policydescriptortype.html
-       */
       const error = /tags should be an array of object having "key" and "value" field/
 
       expect(subject({ tags: undefined }))
@@ -199,10 +196,6 @@ describe('ServerlessAssumeRole', () => {
     })
 
     it('throws an error if "transitiveTagKeys" is neither undefined nor an array of string', () => {
-      /*
-       * PolicyDectatorType
-       * See: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-sts/interfaces/policydescriptortype.html
-       */
       const error = /transitiveTagKeys should be an array of string/
 
       expect(subject({ transitiveTagKeys: undefined }))

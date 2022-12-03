@@ -15,6 +15,7 @@
   "keywords": [
     "aws",
     "aws-iam",
+    "aws-sts",
     "serverless",
     "serverless-plugin"
   ],
@@ -25,12 +26,13 @@
   },
   "homepage": "https://github.com/kaicoh/serverless-assume-role#readme",
   "dependencies": {
-    "@aws-sdk/client-sts": "^3.223.0",
-    "serverless": "^3.25.1"
+    "aws-sdk": "^2.1267.0",
+    "lodash.get": "^4.4.2",
+    "serverless": "3"
   },
   "devDependencies": {
     "@types/jest": "^29.2.3",
-    "@types/serverless": "^3.12.9",
+    "@types/lodash.get": "^4.4.7",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "eslint": "^8.28.0",
     "eslint-config-standard-with-typescript": "^23.0.0",
@@ -40,6 +42,9 @@
     "jest": "^29.3.1",
     "ts-jest": "^29.0.3",
     "typescript": "^4.9.3"
+  },
+  "peerDependencies": {
+    "serverless": "3"
   },
   "files": [
     "dist",
