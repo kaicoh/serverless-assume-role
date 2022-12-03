@@ -1,7 +1,7 @@
 import AWS from 'aws-sdk'
 import _get from 'lodash.get'
 
-interface Serverless {
+export interface Serverless {
   getProvider: (name: string) => AwsProvider
 
   service: {
@@ -21,24 +21,24 @@ interface Serverless {
   }
 }
 
-interface Options {
+export interface Options {
   stage: string | null
   region: string | null
 }
 
-interface Utils {
+export interface Utils {
   log: {
     info: (...args: any[]) => void
   }
 }
 
-interface AwsProvider {
+export interface AwsProvider {
   getCredentials: () => Credentials
-  cachedCredentials: Credentials
+  cachedCredentials?: Credentials
   request: <T>(service: string, method: string, params: {}) => Promise<T>
 }
 
-interface Credentials {
+export interface Credentials {
   credentials: AWS.Credentials
   signatureVersion?: string
 }
@@ -259,10 +259,7 @@ function isValidTag (obj: any): boolean {
   return typeof obj.key === 'string' && typeof obj.value === 'string'
 }
 
-function toTags (tags: any[] | undefined): Array<{ Key: string, Value: string }> {
-  if (tags === undefined) {
-    return []
-  }
+function toTags (tags: any[]): Array<{ Key: string, Value: string }> {
   return tags.map(({ key, value }) => ({ Key: key, Value: value }))
 }
 
