@@ -3,6 +3,7 @@ import _get from 'lodash.get'
 
 export interface Serverless {
   getProvider: (name: string) => AwsProvider
+  setProvider: (name: string, provider: AwsProvider) => void
 
   service: {
     custom: {
@@ -35,7 +36,7 @@ export interface Utils {
 export interface AwsProvider {
   getCredentials: () => Credentials
   cachedCredentials?: Credentials
-  request: <T>(service: string, method: string, params: {}) => Promise<T>
+  request: <T>(service: string, method: string, params: {}, options?: {}) => Promise<T>
 }
 
 export interface Credentials {
@@ -47,27 +48,6 @@ export default class ServerlessAssumeRole {
   serverless: Serverless
   options: Options
   log: Utils['log']
-  params: AWS.STS.Types.AssumeRoleRequest
-
-  hooks: {
-    [event: string]: Function
-  }
-
-  commands: {
-    [command: string]: {
-      usage: string
-      lifecycleEvents: string[]
-      options?: {
-        [name: string]: {
-          usage?: string
-          required?: boolean
-          shortcut?: string
-          default?: string | boolean
-          type: 'string' | 'boolean' | 'multiple'
-        }
-      }
-    }
-  }
 
   constructor (
     serverless: Serverless,
@@ -77,19 +57,68 @@ export default class ServerlessAssumeRole {
     this.serverless = serverless
     this.options = options
     this.log = utils.log
-    this.params = this.getAssumeRoleParams()
 
-    this.commands = {
-      'assumerole:test': {
-        usage: 'Test assume role command under the current configuration in serverless.yml',
-        lifecycleEvents: ['run']
+    let assumed = false
+
+    const inputs = this.getAssumeRoleParams()
+
+    const proxyAws = new Proxy(this.provider, {
+      get (target, prop) {
+        if (prop === 'request') {
+          return new Proxy(target[prop], {
+            apply: async (target, thisArg, argumentsList) => {
+              if (!assumed) {
+                const { credentials: cred } = thisArg.getCredentials()
+                /*
+                 * Execute assume role
+                 */
+                const sts = new AWS.STS({ credentials: cred })
+                const { Credentials } = await sts.assumeRole(inputs).promise()
+
+                if (Credentials === undefined) {
+                  throw new Error('Failed to get credentials from assume role request')
+                }
+
+                utils.log.info('AssumeRole action succeeded')
+                /*
+                 * Create new credentials
+                 */
+                const { AccessKeyId, SecretAccessKey, SessionToken } = Credentials
+
+                const prefix = 'SLS_ASSUME_ROLE'
+                process.env[`${prefix}_ACCESS_KEY_ID`] = AccessKeyId
+                process.env[`${prefix}_SECRET_ACCESS_KEY`] = SecretAccessKey
+                process.env[`${prefix}_SESSION_TOKEN`] = SessionToken
+
+                const credentials: Credentials = {
+                  credentials: new AWS.EnvironmentCredentials(prefix)
+                }
+
+                // See: https://github.com/serverless/serverless/blob/main/lib/plugins/aws/provider.js#L1682-L1689
+                if (_get(serverless, ['service', 'provider', 'deploymentBucketObject', 'serverSideEncryption']) === 'aws:kms') {
+                  credentials.signatureVersion = 'v4'
+                }
+
+                /*
+                 * Overwrite provider's credentials
+                 */
+                thisArg.cachedCredentials = credentials
+
+                utils.log.info('Serverless assume role plugin run command Finished!')
+
+                assumed = true
+              }
+
+              return Reflect.apply(target, thisArg, argumentsList)
+            }
+          })
+        }
+
+        return Reflect.get(target, prop)
       }
-    }
+    })
 
-    this.hooks = {
-      'assumerole:test:run': this.run.bind(this),
-      initialize: this.run.bind(this)
-    }
+    this.serverless.setProvider('aws', proxyAws)
   }
 
   get provider (): AwsProvider {
@@ -183,49 +212,6 @@ export default class ServerlessAssumeRole {
       TokenCode: tokenCode,
       TransitiveTagKeys: transitiveTagKeys
     }
-  }
-
-  async run (): Promise<void> {
-    const aws = this.provider
-    /*
-     * Execute assume role
-     */
-    const response = await aws.request<AWS.STS.Types.AssumeRoleResponse>(
-      'STS',
-      'assumeRole',
-      this.params
-    )
-
-    const { Credentials } = response
-    if (Credentials === undefined) {
-      throw new Error('Failed to get credentials from assume role request')
-    }
-
-    this.log.info('AssumeRole action succeeded')
-
-    /*
-     * Create new credentials
-     */
-    const { AccessKeyId, SecretAccessKey, SessionToken } = Credentials
-
-    const prefix = 'SLS_ASSUME_ROLE'
-    process.env[`${prefix}_ACCESS_KEY_ID`] = AccessKeyId
-    process.env[`${prefix}_SECRET_ACCESS_KEY`] = SecretAccessKey
-    process.env[`${prefix}_SESSION_TOKEN`] = SessionToken
-
-    const credentials: Credentials = {
-      credentials: new AWS.EnvironmentCredentials(prefix)
-    }
-
-    // See: https://github.com/serverless/serverless/blob/main/lib/plugins/aws/provider.js#L1682-L1689
-    if (_get(this.serverless, ['service', 'provider', 'deploymentBucketObject', 'serverSideEncryption']) === 'aws:kms') {
-      credentials.signatureVersion = 'v4'
-    }
-
-    /*
-     * Overwrite provider's credentials
-     */
-    aws.cachedCredentials = credentials
   }
 
   error (message?: string): Error {
