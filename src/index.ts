@@ -86,15 +86,9 @@ export default class ServerlessAssumeRole {
       }
     }
 
-    // Ref: https://gist.github.com/HyperBrain/50d38027a8f57778d5b0f135d80ea406
     this.hooks = {
       'assumerole:test:run': this.run.bind(this),
-      'before:deploy:deploy': this.run.bind(this),
-      'before:deploy:list:log': this.run.bind(this),
-      'before:info:info': this.run.bind(this),
-      'before:remove:remove': this.run.bind(this),
-      'before:logs:logs': this.run.bind(this),
-      'before:invoke:invoke': this.run.bind(this)
+      initialize: this.run.bind(this)
     }
   }
 

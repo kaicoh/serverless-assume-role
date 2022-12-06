@@ -194,18 +194,9 @@ describe('ServerlessAssumeRole', () => {
       expect(() => subject({ transitiveTagKeys: {} })).toThrow(error)
     })
 
-    const events: string [] = [
-      'deploy:deploy',
-      'deploy:list:log',
-      'info:info',
-      'remove:remove',
-      'logs:logs',
-      'invoke:invoke'
-    ]
-
-    it.each(events)('sets hook to "before:%s" event', (event) => {
+    it('sets hook to "initialize" event', () => {
       const plugin = subject({})
-      expect(plugin.hooks[`before:${event}`]).toBeDefined()
+      expect(plugin.hooks.initialize).toBeDefined()
     })
   })
 
