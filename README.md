@@ -33,17 +33,6 @@ custom:
 
 It's done! Now when you run `serverless deploy`, this plugin executes `AssumeRole` action before the deployment and then deploys your package with the IAM Role.
 
-## Available commands
-
-At the time of wrinting, this plugin runs before the execution of these commands.
-
-- serverless deploy
-- serverless deploy list
-- serverless info
-- serverless remove
-- serverless logs
-- serverless invoke
-
 ## License
 
 This software is released under the [MIT License](LICENSE).
