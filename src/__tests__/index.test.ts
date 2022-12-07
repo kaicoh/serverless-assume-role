@@ -14,9 +14,11 @@ describe('ServerlessAssumeRole', () => {
     log: { info: jest.fn() }
   }
 
-  describe('constructor', () => {
+  describe('validation for configuration', () => {
     function mockServerless (config: any): Serverless {
       const sls: any = {
+        getProvider: jest.fn(() => ({})),
+        setProvider: jest.fn(),
         service: {
           custom: {
             assumeRole: config
@@ -31,78 +33,6 @@ describe('ServerlessAssumeRole', () => {
       const serverless = mockServerless(config)
       return new ServerlessAssumeRole(serverless, options, utils)
     }
-
-    it('sets an empty object to assume role inputs if there is no "custom" configuration', () => {
-      const sls: any = {
-        service: {},
-        classes: { Error }
-      }
-      const plugin = new ServerlessAssumeRole(sls, options, utils)
-      expect(plugin.params).toEqual({})
-    })
-
-    it('sets "DurationSeconds" to assume role inputs from "custom" configuration', () => {
-      const pluginStr = subject({ durationSeconds: '123' })
-      expect(pluginStr.params.DurationSeconds).toEqual(123)
-
-      const pluginNum = subject({ durationSeconds: 456 })
-      expect(pluginNum.params.DurationSeconds).toEqual(456)
-    })
-
-    it('sets undefined as "DurationSeconds" to assume role inputs if "custom" configuration isn\'t set', () => {
-      const plugin = subject({})
-      expect(plugin.params.DurationSeconds).toBeUndefined()
-    })
-
-    it('sets "ExternalId" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ externalId: 'foobar' })
-      expect(plugin.params.ExternalId).toEqual('foobar')
-    })
-
-    it('sets "Policy" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ policy: 'foobar' })
-      expect(plugin.params.Policy).toEqual('foobar')
-    })
-
-    it('sets "PolicyArns" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ policyArns: [{ arn: 'foobar' }] })
-      expect(plugin.params.PolicyArns).toEqual([{ arn: 'foobar' }])
-    })
-
-    it('sets "RoleArn" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ roleArn: 'foobar' })
-      expect(plugin.params.RoleArn).toEqual('foobar')
-    })
-
-    it('sets "RoleSessionName" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ roleSessionName: 'foobar' })
-      expect(plugin.params.RoleSessionName).toEqual('foobar')
-    })
-
-    it('sets "SerialNumber" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ serialNumber: 'foobar' })
-      expect(plugin.params.SerialNumber).toEqual('foobar')
-    })
-
-    it('sets "SourceIdentity" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ sourceIdentity: 'foobar' })
-      expect(plugin.params.SourceIdentity).toEqual('foobar')
-    })
-
-    it('sets "Tags" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ tags: [{ key: 'foo', value: 'bar' }] })
-      expect(plugin.params.Tags).toEqual([{ Key: 'foo', Value: 'bar' }])
-    })
-
-    it('sets "TokenCode" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ tokenCode: 'foobar' })
-      expect(plugin.params.TokenCode).toEqual('foobar')
-    })
-
-    it('sets "TransitiveTagKeys" to assume role inputs from "custom" configuration', () => {
-      const plugin = subject({ transitiveTagKeys: ['foo', 'bar'] })
-      expect(plugin.params.TransitiveTagKeys).toEqual(['foo', 'bar'])
-    })
 
     it('throws an error if "durationSeconds" is neither undefined nor an interger', () => {
       const error = /durationSeconds should be an integer/
@@ -193,114 +123,154 @@ describe('ServerlessAssumeRole', () => {
       expect(() => subject({ transitiveTagKeys: [123, 'foo'] })).toThrow(error)
       expect(() => subject({ transitiveTagKeys: {} })).toThrow(error)
     })
-
-    it('sets hook to "initialize" event', () => {
-      const plugin = subject({})
-      expect(plugin.hooks.initialize).toBeDefined()
-    })
   })
 
-  describe('run', () => {
-    let mock: ReturnType<typeof jest.spyOn>
-    let aws: AwsProvider
+  describe('intercepting "request" method of aws provider', () => {
+    const STSMock: any = AWS.STS
+    const output = { foo: 'bar' }
 
-    const credentials: any = {}
+    let mockAssumeRole: any
+    let mockAwsProvider: any
 
-    async function subject (_aws: AwsProvider, provider: any = {}): Promise<void> {
+    function mockServerless (config: any, provider?: {}): Serverless {
       const sls: any = {
-        getProvider: jest.fn(() => _aws),
+        getProvider: jest.fn(() => mockAwsProvider),
+        setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
         service: {
           custom: {
-            assumeRole: {
-              externalId: 'my-external-id',
-              roleArn: 'my-role-arn'
-            }
+            assumeRole: config
           },
           provider
         },
         classes: { Error }
       }
+      return sls
+    }
 
-      const options: Options = { stage: 'dev', region: 'local' }
-
-      const plugin = new ServerlessAssumeRole(sls, options, utils)
-      await plugin.run()
+    function init (config: any, provider?: {}): ServerlessAssumeRole {
+      const serverless = mockServerless(config, provider)
+      return new ServerlessAssumeRole(serverless, options, utils)
     }
 
     beforeEach(() => {
-      mock = jest.spyOn(AWS, 'EnvironmentCredentials')
-    })
-
-    afterEach(() => {
-      mock.mockRestore()
-    })
-
-    it('calls STS assume role request with current aws provider', async () => {
-      aws = {
-        getCredentials: () => ({ credentials }),
-        request: jest.fn(async () => await Promise.resolve({ Credentials: {} }) as any)
+      mockAwsProvider = {
+        getCredentials: () => ({}),
+        request: jest.fn(async () => await Promise.resolve(output))
       }
 
-      await subject(aws)
-
-      expect(aws.request).toHaveBeenCalledWith('STS', 'assumeRole', {
-        ExternalId: 'my-external-id',
-        RoleArn: 'my-role-arn'
-      })
-    })
-
-    it('creates new credentials using STS assume role response', async () => {
-      aws = {
-        getCredentials: () => ({ credentials }),
-        request: jest.fn(async () => await Promise.resolve({
+      mockAssumeRole = jest.fn(() => ({
+        promise: jest.fn(async () => await Promise.resolve({
           Credentials: {
             AccessKeyId: 'access key id',
             SecretAccessKey: 'secret access key',
             SessionToken: 'session token'
           }
-        }) as any)
-      }
+        }))
+      }))
 
-      await subject(aws)
-
-      expect(process.env.SLS_ASSUME_ROLE_ACCESS_KEY_ID).toEqual('access key id')
-      expect(process.env.SLS_ASSUME_ROLE_SECRET_ACCESS_KEY).toEqual('secret access key')
-      expect(process.env.SLS_ASSUME_ROLE_SESSION_TOKEN).toEqual('session token')
-      expect(AWS.EnvironmentCredentials).toHaveBeenCalledWith('SLS_ASSUME_ROLE')
-    })
-
-    it('throws an error if assume role response doesn\'t have credentials', async () => {
-      aws = {
-        getCredentials: () => ({ credentials }),
-        request: jest.fn(async () => await Promise.resolve({}) as any)
-      }
-
-      await expect(async () => await subject(aws)).rejects.toThrow(/Failed to get credentials from assume role request/)
-    })
-
-    it('sets signature version "v4" to new credentials if deployment bucket using kms encryption', async () => {
-      aws = {
-        getCredentials: () => ({ credentials }),
-        request: jest.fn(async () => await Promise.resolve({ Credentials: {} }) as any)
-      }
-
-      await subject(aws, { deploymentBucketObject: { serverSideEncryption: 'aws:kms' } })
-
-      expect(aws.cachedCredentials).toEqual(expect.objectContaining({
-        signatureVersion: 'v4'
+      STSMock.mockImplementation(() => ({
+        assumeRole: mockAssumeRole
       }))
     })
 
-    it('overwrites provider\'s cached credentials', async () => {
-      aws = {
-        getCredentials: () => ({ credentials }),
-        request: jest.fn(async () => await Promise.resolve({ Credentials: {} }) as any)
+    it('calls AssumeRole when plugin\'s provider calls any "request"', async () => {
+      const plugin = init({})
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalled()
+    })
+
+    it('calls AssumeRole only once even if plugin\'s provider calls "request" more than once', async () => {
+      const plugin = init({})
+      await plugin.provider.request('foo', 'bar', {})
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalledTimes(1)
+    })
+
+    it('gets original outputs even if the aws provider is a proxy', async () => {
+      const plugin = init({})
+      const result = await plugin.provider.request('foo', 'bar', {})
+      expect(result).toEqual(output)
+    })
+
+    it('calls AssumeRole with empty object if there is no "custom" configuration in serverless.yml', async () => {
+      const sls: any = {
+        getProvider: jest.fn(() => mockAwsProvider),
+        setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
+        service: {
+          provider: {}
+        },
+        classes: { Error }
       }
+      const plugin = new ServerlessAssumeRole(sls, options, utils)
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalledWith({})
+    })
 
-      await subject(aws)
+    const assumeRoleParamsTable: Array<[string, string, any]> = [
+      ['DurationSeconds', 'durationSeconds', 123],
+      ['Policy', 'policy', 'foobar'],
+      ['PolicyArns', 'policyArns', [{ arn: 'foovar' }]],
+      ['RoleArn', 'roleArn', 'foobar'],
+      ['RoleSessionName', 'roleSessionName', 'foobar'],
+      ['SerialNumber', 'serialNumber', 'foobar'],
+      ['SourceIdentity', 'sourceIdentity', 'foobar'],
+      ['TokenCode', 'tokenCode', 'foobar'],
+      ['TransitiveTagKeys', 'transitiveTagKeys', ['foo', 'bar']]
+    ]
 
-      expect(aws.cachedCredentials).toBeDefined()
-      expect(aws.cachedCredentials?.credentials).toBeInstanceOf(AWS.EnvironmentCredentials)
+    it.each(assumeRoleParamsTable)('calls AssumeRole with "%s" from serverless configuration', async (prop, key, value) => {
+      const plugin = init({ [key]: value })
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalledWith(expect.objectContaining({
+        [prop]: value
+      }))
+    })
+
+    it('calls AssumeRole with "Tags" from serverless configuration', async () => {
+      const plugin = init({ tags: [{ key: 'foo', value: 'bar' }] })
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalledWith(expect.objectContaining({
+        Tags: [{ Key: 'foo', Value: 'bar' }]
+      }))
+    })
+
+    it('calls AssumeRole with "DurationSeconds" as integer if it is given as string', async () => {
+      const plugin = init({ durationSeconds: '456' })
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalledWith(expect.objectContaining({
+        DurationSeconds: 456
+      }))
+    })
+
+    it('sets AWS environment variables for getting assumed role credentials', async () => {
+      const plugin = init({})
+      await plugin.provider.request('foo', 'bar', {})
+      expect(process.env.SLS_ASSUME_ROLE_ACCESS_KEY_ID).toEqual('access key id')
+      expect(process.env.SLS_ASSUME_ROLE_SECRET_ACCESS_KEY).toEqual('secret access key')
+      expect(process.env.SLS_ASSUME_ROLE_SESSION_TOKEN).toEqual('session token')
+    })
+
+    it('sets new AWS.EnvironmentCredentials as provider\'s cache', async () => {
+      const plugin = init({})
+      await plugin.provider.request('foo', 'bar', {})
+      expect(plugin.provider.cachedCredentials).toBeDefined()
+      expect(plugin.provider.cachedCredentials?.credentials).toBeInstanceOf(AWS.EnvironmentCredentials)
+    })
+
+    it('throws an error when failed to get credentials from AssumeRole request', async () => {
+      mockAssumeRole = jest.fn(() => ({
+        promise: jest.fn(async () => await Promise.resolve({}))
+      }))
+      const plugin = init({})
+      await expect(async () => await plugin.provider.request('foo', 'bar', {}))
+        .rejects.toThrow(/Failed to get credentials from assume role request/)
+    })
+
+    it('sets signatureVersion to new credentials if the deployment bucket has kms key', async () => {
+      const plugin = init({}, { deploymentBucketObject: { serverSideEncryption: 'aws:kms' } })
+      await plugin.provider.request('foo', 'bar', {})
+      expect(plugin.provider.cachedCredentials).toBeDefined()
+      expect(plugin.provider.cachedCredentials?.signatureVersion).toEqual('v4')
     })
   })
 })
