@@ -2,8 +2,7 @@ import AWS from 'aws-sdk'
 import ServerlessAssumeRole, {
   Serverless,
   Options,
-  Utils,
-  AwsProvider
+  Utils
 } from '..'
 
 jest.mock('aws-sdk')
