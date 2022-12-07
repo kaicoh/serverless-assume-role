@@ -29,7 +29,7 @@ export interface Options {
 
 export interface Utils {
   log: {
-    info: (...args: any[]) => void
+    notice: (...args: any[]) => void
   }
 }
 
@@ -78,12 +78,15 @@ export default class ServerlessAssumeRole {
                 if (Credentials === undefined) {
                   throw new Error('Failed to get credentials from assume role request')
                 }
-
-                utils.log.info('AssumeRole action succeeded')
                 /*
                  * Create new credentials
                  */
-                const { AccessKeyId, SecretAccessKey, SessionToken } = Credentials
+                const {
+                  AccessKeyId,
+                  SecretAccessKey,
+                  SessionToken,
+                  Expiration
+                } = Credentials
 
                 const prefix = 'SLS_ASSUME_ROLE'
                 process.env[`${prefix}_ACCESS_KEY_ID`] = AccessKeyId
@@ -104,7 +107,7 @@ export default class ServerlessAssumeRole {
                  */
                 thisArg.cachedCredentials = credentials
 
-                utils.log.info('Serverless assume role plugin run command Finished!')
+                utils.log.notice(`Assume role succeeded! The new credentials is valid until ${Expiration.toLocaleString()}`)
 
                 assumed = true
               }
