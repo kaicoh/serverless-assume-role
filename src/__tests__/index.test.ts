@@ -15,6 +15,7 @@ describe('ServerlessAssumeRole', () => {
   describe('validation for configuration', () => {
     function mockServerless(params: any): Serverless {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => ({})),
         setProvider: jest.fn(),
         service: {
@@ -156,7 +157,8 @@ describe('ServerlessAssumeRole', () => {
 
     it('executes validation if the stage variable provided by the provider settings', () => {
       const sls: any = {
-        getProvider: jest.fn(() => ({ stage: 'stg' })),
+        configurationInput: { provider: { stage: 'stg' } },
+        getProvider: jest.fn(() => ({})),
         setProvider: jest.fn(),
         service: {
           custom: {
@@ -176,6 +178,7 @@ describe('ServerlessAssumeRole', () => {
 
     it('executes validation if the stage variable provided by the default "dev"', () => {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => ({})),
         setProvider: jest.fn(),
         service: {
@@ -213,6 +216,7 @@ describe('ServerlessAssumeRole', () => {
 
     function mockServerless(params: any, provider?: {}): Serverless {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => {
           mockAwsProvider = proxy;
@@ -279,6 +283,7 @@ describe('ServerlessAssumeRole', () => {
 
     it('calls AssumeRole with empty object if there is no "custom.assumeRole.params" configuration', async () => {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => {
           mockAwsProvider = proxy;
@@ -298,6 +303,7 @@ describe('ServerlessAssumeRole', () => {
 
     it('doesn\'t call AssumeRole if there is no "custom.assumeRole" configuration', async () => {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => {
           mockAwsProvider = proxy;
@@ -315,6 +321,7 @@ describe('ServerlessAssumeRole', () => {
 
     it('doesn\'t call AssumeRole if there is no "custom" configuration', async () => {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => {
           mockAwsProvider = proxy;
@@ -331,6 +338,7 @@ describe('ServerlessAssumeRole', () => {
 
     it('doesn\'t call AssumeRole if the stage is not match with the "custom" configuration', async () => {
       const sls: any = {
+        configurationInput: { provider: {} },
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => {
           mockAwsProvider = proxy;
