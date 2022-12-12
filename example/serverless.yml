@@ -10,9 +10,13 @@ plugins:
 
 custom:
   assumeRole:
-    roleArn: arn:aws:iam::012345678901:role/your-role-name
-    externalId: my-external-id
-    roleSessionName: serverless-framework-deployment
+    stages:
+      - stg
+      - prod
+    params:
+      roleArn: arn:aws:iam::012345678901:role/your-role-name
+      externalId: my-external-id
+      roleSessionName: serverless-framework-deployment
 
 functions:
   hello:
