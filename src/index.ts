@@ -141,7 +141,7 @@ export default class ServerlessAssumeRole {
       tags,
       tokenCode,
       transitiveTagKeys
-    } = this.serverless.service.custom?.assumeRole ?? {}
+    } = this.serverless.service.custom?.assumeRole?.params ?? {}
 
     const intDurationSeconds = Number.parseInt(durationSeconds, 10)
     if (durationSeconds !== undefined && Number.isNaN(intDurationSeconds)) {

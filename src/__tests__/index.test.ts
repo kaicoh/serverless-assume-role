@@ -14,13 +14,13 @@ describe('ServerlessAssumeRole', () => {
   }
 
   describe('validation for configuration', () => {
-    function mockServerless (config: any): Serverless {
+    function mockServerless (params: any): Serverless {
       const sls: any = {
         getProvider: jest.fn(() => ({})),
         setProvider: jest.fn(),
         service: {
           custom: {
-            assumeRole: config
+            assumeRole: { params }
           }
         },
         classes: { Error }
@@ -131,13 +131,13 @@ describe('ServerlessAssumeRole', () => {
     let mockAssumeRole: any
     let mockAwsProvider: any
 
-    function mockServerless (config: any, provider?: {}): Serverless {
+    function mockServerless (params: any, provider?: {}): Serverless {
       const sls: any = {
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
         service: {
           custom: {
-            assumeRole: config
+            assumeRole: { params }
           },
           provider
         },
