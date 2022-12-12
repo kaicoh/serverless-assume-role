@@ -5,6 +5,12 @@ export interface Serverless {
   getProvider: (name: string) => AwsProvider;
   setProvider: (name: string, provider: AwsProvider) => void;
 
+  configurationInput: {
+    provider: {
+      stage?: string;
+    };
+  };
+
   service: {
     custom: {
       [key: string]: any;
@@ -34,7 +40,6 @@ export interface Utils {
 }
 
 export interface AwsProvider {
-  stage?: string;
   getCredentials: () => Credentials;
   cachedCredentials?: Credentials;
   request: <T>(
@@ -146,7 +151,10 @@ export default class ServerlessAssumeRole {
   }
 
   private shouldRun(): boolean {
-    const stage = this.options.stage ?? this.provider.stage ?? 'dev';
+    const stage =
+      this.options.stage ??
+      this.serverless.configurationInput.provider.stage ??
+      'dev';
     return this.stagesToRun().includes(stage);
   }
 
