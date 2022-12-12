@@ -59,7 +59,7 @@ export default class ServerlessAssumeRole {
     this.options = options
     this.log = utils.log
 
-    if (this.needToRun()) {
+    if (this.shouldRun()) {
       let assumed = false
 
       const inputs = this.getAssumeRoleParams()
@@ -131,12 +131,12 @@ export default class ServerlessAssumeRole {
     return this.serverless.getProvider('aws')
   }
 
-  private needToRun (): boolean {
+  private shouldRun (): boolean {
     const stage = this.options.stage ?? this.provider.stage ?? 'dev'
-    return this.stagesNeedToRun().includes(stage)
+    return this.stagesToRun().includes(stage)
   }
 
-  private stagesNeedToRun (): string[] {
+  private stagesToRun (): string[] {
     const { stages } = this.serverless.service.custom?.assumeRole ?? {}
     if (stages === undefined) {
       return []
