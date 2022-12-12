@@ -10,7 +10,7 @@ jest.mock('aws-sdk')
 describe('ServerlessAssumeRole', () => {
   const options: Options = { stage: 'dev', region: 'local' }
   const utils: Utils = {
-    log: { info: jest.fn() }
+    log: { notice: jest.fn() }
   }
 
   describe('validation for configuration', () => {
@@ -162,7 +162,8 @@ describe('ServerlessAssumeRole', () => {
           Credentials: {
             AccessKeyId: 'access key id',
             SecretAccessKey: 'secret access key',
-            SessionToken: 'session token'
+            SessionToken: 'session token',
+            Expiration: new Date()
           }
         }))
       }))
