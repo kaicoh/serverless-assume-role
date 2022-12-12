@@ -22,16 +22,21 @@ plugins:
 
 custom:
   assumeRole:
-    # These are all the same parameter to what AWS API uses.
-    # But the parameter names are all camelCased.
-    # If you want more details for each parameter, see AWS Documentation.
-    # https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
-    roleArn: arn:aws:iam::012345678901:role/your-role-name
-    externalId: my-external-id
-    roleSessionName: serverless-framework-deployment
+    stages:
+      # The stages this plugin executes Assume Role action.
+      - stg
+      - prod
+    params:
+      # These are all the same parameter to what AWS API uses.
+      # But the parameter names are all camelCased.
+      # If you want more details for each parameter, see AWS Documentation.
+      # https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+      roleArn: arn:aws:iam::012345678901:role/your-role-name
+      externalId: my-external-id
+      roleSessionName: serverless-framework-deployment
 ```
 
-It's done! Now when you run `serverless deploy`, this plugin executes `AssumeRole` action before the deployment and then deploys your package with the IAM Role.
+It's done! Now when you run `serverless deploy --stage stg` or `serverless deploy --stage prod`, this plugin executes `AssumeRole` action before the deployment and then deploys your package with the IAM Role.
 
 ## License
 
