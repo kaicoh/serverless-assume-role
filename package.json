@@ -1,6 +1,6 @@
 {
   "name": "serverless-assume-role",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "A Serverless framework plugin to enable AWS assume role",
   "main": "dist/index.js",
   "scripts": {
