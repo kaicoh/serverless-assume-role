@@ -34,6 +34,7 @@ export interface Utils {
 }
 
 export interface AwsProvider {
+  stage?: string
   getCredentials: () => Credentials
   cachedCredentials?: Credentials
   request: <T>(service: string, method: string, params: {}, options?: {}) => Promise<T>
@@ -58,74 +59,94 @@ export default class ServerlessAssumeRole {
     this.options = options
     this.log = utils.log
 
-    let assumed = false
+    if (this.needToRun()) {
+      let assumed = false
 
-    const inputs = this.getAssumeRoleParams()
+      const inputs = this.getAssumeRoleParams()
 
-    const proxyAws = new Proxy(this.provider, {
-      get (target, prop) {
-        if (prop === 'request') {
-          return new Proxy(target[prop], {
-            apply: async (target, thisArg, argumentsList) => {
-              if (!assumed) {
-                const { credentials: cred } = thisArg.getCredentials()
-                /*
-                 * Execute assume role
-                 */
-                const sts = new AWS.STS({ credentials: cred })
-                const { Credentials } = await sts.assumeRole(inputs).promise()
+      const proxyAws = new Proxy(this.provider, {
+        get (target, prop) {
+          if (prop === 'request') {
+            return new Proxy(target[prop], {
+              apply: async (target, thisArg, argumentsList) => {
+                if (!assumed) {
+                  const { credentials: cred } = thisArg.getCredentials()
+                  /*
+                   * Execute assume role
+                   */
+                  const sts = new AWS.STS({ credentials: cred })
+                  const { Credentials } = await sts.assumeRole(inputs).promise()
 
-                if (Credentials === undefined) {
-                  throw new Error('Failed to get credentials from assume role request')
+                  if (Credentials === undefined) {
+                    throw new Error('Failed to get credentials from assume role request')
+                  }
+                  /*
+                   * Create new credentials
+                   */
+                  const {
+                    AccessKeyId,
+                    SecretAccessKey,
+                    SessionToken,
+                    Expiration
+                  } = Credentials
+
+                  const prefix = 'SLS_ASSUME_ROLE'
+                  process.env[`${prefix}_ACCESS_KEY_ID`] = AccessKeyId
+                  process.env[`${prefix}_SECRET_ACCESS_KEY`] = SecretAccessKey
+                  process.env[`${prefix}_SESSION_TOKEN`] = SessionToken
+
+                  const credentials: Credentials = {
+                    credentials: new AWS.EnvironmentCredentials(prefix)
+                  }
+
+                  // See: https://github.com/serverless/serverless/blob/main/lib/plugins/aws/provider.js#L1682-L1689
+                  if (_get(serverless, ['service', 'provider', 'deploymentBucketObject', 'serverSideEncryption']) === 'aws:kms') {
+                    credentials.signatureVersion = 'v4'
+                  }
+
+                  /*
+                   * Overwrite provider's credentials
+                   */
+                  thisArg.cachedCredentials = credentials
+
+                  utils.log.notice(`Assume role succeeded! The new credentials is valid until ${Expiration.toLocaleString()}`)
+
+                  assumed = true
                 }
-                /*
-                 * Create new credentials
-                 */
-                const {
-                  AccessKeyId,
-                  SecretAccessKey,
-                  SessionToken,
-                  Expiration
-                } = Credentials
 
-                const prefix = 'SLS_ASSUME_ROLE'
-                process.env[`${prefix}_ACCESS_KEY_ID`] = AccessKeyId
-                process.env[`${prefix}_SECRET_ACCESS_KEY`] = SecretAccessKey
-                process.env[`${prefix}_SESSION_TOKEN`] = SessionToken
-
-                const credentials: Credentials = {
-                  credentials: new AWS.EnvironmentCredentials(prefix)
-                }
-
-                // See: https://github.com/serverless/serverless/blob/main/lib/plugins/aws/provider.js#L1682-L1689
-                if (_get(serverless, ['service', 'provider', 'deploymentBucketObject', 'serverSideEncryption']) === 'aws:kms') {
-                  credentials.signatureVersion = 'v4'
-                }
-
-                /*
-                 * Overwrite provider's credentials
-                 */
-                thisArg.cachedCredentials = credentials
-
-                utils.log.notice(`Assume role succeeded! The new credentials is valid until ${Expiration.toLocaleString()}`)
-
-                assumed = true
+                return Reflect.apply(target, thisArg, argumentsList)
               }
+            })
+          }
 
-              return Reflect.apply(target, thisArg, argumentsList)
-            }
-          })
+          return Reflect.get(target, prop)
         }
+      })
 
-        return Reflect.get(target, prop)
-      }
-    })
-
-    this.serverless.setProvider('aws', proxyAws)
+      this.serverless.setProvider('aws', proxyAws)
+    }
   }
 
   get provider (): AwsProvider {
     return this.serverless.getProvider('aws')
+  }
+
+  private needToRun (): boolean {
+    const stage = this.options.stage ?? this.provider.stage ?? 'dev'
+    return this.stagesNeedToRun().includes(stage)
+  }
+
+  private stagesNeedToRun (): string[] {
+    const { stages } = this.serverless.service.custom?.assumeRole ?? {}
+    if (stages === undefined) {
+      return []
+    }
+
+    if (Array.isArray(stages) && stages.every((stage) => typeof stage === 'string')) {
+      return stages
+    }
+
+    throw this.error('stages should be an array of string')
   }
 
   private getAssumeRoleParams (): AWS.STS.Types.AssumeRoleRequest {
@@ -141,7 +162,7 @@ export default class ServerlessAssumeRole {
       tags,
       tokenCode,
       transitiveTagKeys
-    } = this.serverless.service.custom?.assumeRole?.params ?? {}
+    } = _get(this.serverless, ['service', 'custom', 'assumeRole', 'params'], {})
 
     const intDurationSeconds = Number.parseInt(durationSeconds, 10)
     if (durationSeconds !== undefined && Number.isNaN(intDurationSeconds)) {

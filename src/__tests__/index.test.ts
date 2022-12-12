@@ -8,7 +8,7 @@ import ServerlessAssumeRole, {
 jest.mock('aws-sdk')
 
 describe('ServerlessAssumeRole', () => {
-  const options: Options = { stage: 'dev', region: 'local' }
+  const options: (stage: string) => Options = (stage?: string) => ({ stage: stage ?? 'dev', region: 'local' })
   const utils: Utils = {
     log: { notice: jest.fn() }
   }
@@ -20,7 +20,7 @@ describe('ServerlessAssumeRole', () => {
         setProvider: jest.fn(),
         service: {
           custom: {
-            assumeRole: { params }
+            assumeRole: { params, stages: ['stg', 'prod'] }
           }
         },
         classes: { Error }
@@ -28,10 +28,17 @@ describe('ServerlessAssumeRole', () => {
       return sls
     }
 
-    function subject (config: any): ServerlessAssumeRole {
-      const serverless = mockServerless(config)
-      return new ServerlessAssumeRole(serverless, options, utils)
+    function subject (params: any, stage: string = 'stg'): ServerlessAssumeRole {
+      const serverless = mockServerless(params)
+      return new ServerlessAssumeRole(serverless, options(stage), utils)
     }
+
+    it('throws an error if the "stages" configuration is invalid', () => {
+      const sls = mockServerless({})
+      sls.service.custom.assumeRole.stages = 'stg'
+      expect(() => new ServerlessAssumeRole(sls, options('stg'), utils))
+        .toThrow(/stages should be an array of string/)
+    })
 
     it('throws an error if "durationSeconds" is neither undefined nor an interger', () => {
       const error = /durationSeconds should be an integer/
@@ -122,6 +129,47 @@ describe('ServerlessAssumeRole', () => {
       expect(() => subject({ transitiveTagKeys: [123, 'foo'] })).toThrow(error)
       expect(() => subject({ transitiveTagKeys: {} })).toThrow(error)
     })
+
+    it('executes validation if the stage variable provided by the provider settings', () => {
+      const sls: any = {
+        getProvider: jest.fn(() => ({ stage: 'stg' })),
+        setProvider: jest.fn(),
+        service: {
+          custom: {
+            assumeRole: {
+              params: { durationSeconds: 'foo' },
+              stages: ['stg', 'prod']
+            }
+          }
+        },
+        classes: { Error }
+      }
+      expect(() => new ServerlessAssumeRole(sls, { stage: null, region: null }, utils)).toThrow()
+    })
+
+    it('executes validation if the stage variable provided by the default "dev"', () => {
+      const sls: any = {
+        getProvider: jest.fn(() => ({})),
+        setProvider: jest.fn(),
+        service: {
+          custom: {
+            assumeRole: {
+              params: { durationSeconds: 'foo' },
+              stages: ['dev']
+            }
+          }
+        },
+        classes: { Error }
+      }
+      expect(() => new ServerlessAssumeRole(sls, { stage: null, region: null }, utils)).toThrow()
+    })
+
+    it('doesn\'t execute validation if the stage is not match the configuration', () => {
+      // In this setting, assume-role action works only if the stage is either "stg" or "prod"
+      expect(() => subject({ durationSeconds: 'foo' }, 'dev')).not.toThrow()
+      expect(() => subject({ tags: 'foobar' }, 'dev')).not.toThrow()
+      expect(() => subject({ transitiveTagKeys: [123, 'foo'] }, 'dev')).not.toThrow()
+    })
   })
 
   describe('intercepting "request" method of aws provider', () => {
@@ -137,7 +185,7 @@ describe('ServerlessAssumeRole', () => {
         setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
         service: {
           custom: {
-            assumeRole: { params }
+            assumeRole: { params, stages: ['stg', 'prod'] }
           },
           provider
         },
@@ -148,7 +196,7 @@ describe('ServerlessAssumeRole', () => {
 
     function init (config: any, provider?: {}): ServerlessAssumeRole {
       const serverless = mockServerless(config, provider)
-      return new ServerlessAssumeRole(serverless, options, utils)
+      return new ServerlessAssumeRole(serverless, options('stg'), utils)
     }
 
     beforeEach(() => {
@@ -173,13 +221,13 @@ describe('ServerlessAssumeRole', () => {
       }))
     })
 
-    it('calls AssumeRole when plugin\'s provider calls any "request"', async () => {
+    it('calls AssumeRole when the provider calls any "request"', async () => {
       const plugin = init({})
       await plugin.provider.request('foo', 'bar', {})
       expect(mockAssumeRole).toHaveBeenCalled()
     })
 
-    it('calls AssumeRole only once even if plugin\'s provider calls "request" more than once', async () => {
+    it('calls AssumeRole only once even if the provider calls "request" more than once', async () => {
       const plugin = init({})
       await plugin.provider.request('foo', 'bar', {})
       await plugin.provider.request('foo', 'bar', {})
@@ -192,7 +240,39 @@ describe('ServerlessAssumeRole', () => {
       expect(result).toEqual(output)
     })
 
-    it('calls AssumeRole with empty object if there is no "custom" configuration in serverless.yml', async () => {
+    it('calls AssumeRole with empty object if there is no "custom.assumeRole.params" configuration', async () => {
+      const sls: any = {
+        getProvider: jest.fn(() => mockAwsProvider),
+        setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
+        service: {
+          custom: {
+            assumeRole: { stages: ['stg', 'prod'] }
+          },
+          provider: {}
+        },
+        classes: { Error }
+      }
+      const plugin = new ServerlessAssumeRole(sls, options('stg'), utils)
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).toHaveBeenCalledWith({})
+    })
+
+    it('doesn\'t call AssumeRole if there is no "custom.assumeRole" configuration', async () => {
+      const sls: any = {
+        getProvider: jest.fn(() => mockAwsProvider),
+        setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
+        service: {
+          custom: {},
+          provider: {}
+        },
+        classes: { Error }
+      }
+      const plugin = new ServerlessAssumeRole(sls, options('stg'), utils)
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).not.toHaveBeenCalled()
+    })
+
+    it('doesn\'t call AssumeRole if there is no "custom" configuration', async () => {
       const sls: any = {
         getProvider: jest.fn(() => mockAwsProvider),
         setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
@@ -201,9 +281,26 @@ describe('ServerlessAssumeRole', () => {
         },
         classes: { Error }
       }
-      const plugin = new ServerlessAssumeRole(sls, options, utils)
+      const plugin = new ServerlessAssumeRole(sls, options('stg'), utils)
       await plugin.provider.request('foo', 'bar', {})
-      expect(mockAssumeRole).toHaveBeenCalledWith({})
+      expect(mockAssumeRole).not.toHaveBeenCalled()
+    })
+
+    it('doesn\'t call AssumeRole if the stage is not match with the "custom" configuration', async () => {
+      const sls: any = {
+        getProvider: jest.fn(() => mockAwsProvider),
+        setProvider: (_: string, proxy: any) => { mockAwsProvider = proxy },
+        service: {
+          custom: {
+            assumeRole: { stages: ['stg', 'prod'] }
+          },
+          provider: {}
+        },
+        classes: { Error }
+      }
+      const plugin = new ServerlessAssumeRole(sls, options('dev'), utils)
+      await plugin.provider.request('foo', 'bar', {})
+      expect(mockAssumeRole).not.toHaveBeenCalled()
     })
 
     const assumeRoleParamsTable: Array<[string, string, any]> = [
