@@ -80,7 +80,10 @@ export default class ServerlessAssumeRole {
                   /*
                    * Execute assume role
                    */
-                  const sts = new AWS.STS({ credentials: cred });
+                  const sts = new AWS.STS({
+                    credentials: cred,
+                    apiVersion: '2011-06-15',
+                  });
                   const { Credentials } = await sts
                     .assumeRole(inputs)
                     .promise();
