@@ -62,7 +62,7 @@ export default class ServerlessAssumeRole {
   options: Options;
   log: Utils['log'];
   hooks: {
-    'before:deploy:deploy': () => Promise<void>;
+    'after:package:setupProviderConfiguration': () => Promise<void>;
   };
 
   constructor(serverless: Serverless, options: Options, utils: Utils) {
@@ -72,7 +72,7 @@ export default class ServerlessAssumeRole {
 
     this.hooks = {
       // Make request in case that there are no aws request before deployment.
-      'before:deploy:deploy': this.runAwsRequest.bind(this),
+      'after:package:setupProviderConfiguration': this.runAwsRequest.bind(this),
     };
 
     if (this.shouldRun()) {
@@ -284,7 +284,11 @@ export default class ServerlessAssumeRole {
   }
 
   private async runAwsRequest(): Promise<void> {
-    const accountId = await this.provider.getAccountId();
+    const { accountId } = await this.provider.request<{ accountId: string }>(
+      'STS',
+      'getCallerIdentity',
+      {}
+    );
     this.log.debug(`AWS accountId: ${accountId}`);
   }
 
