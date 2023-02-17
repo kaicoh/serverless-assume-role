@@ -35,12 +35,14 @@ export interface Options {
 
 export interface Utils {
   log: {
+    debug: (...args: any[]) => void;
     notice: (...args: any[]) => void;
   };
 }
 
 export interface AwsProvider {
   getCredentials: () => Credentials;
+  getAccountId: () => Promise<string>;
   cachedCredentials?: Credentials;
   request: <T>(
     service: string,
@@ -59,11 +61,19 @@ export default class ServerlessAssumeRole {
   serverless: Serverless;
   options: Options;
   log: Utils['log'];
+  hooks: {
+    'before:deploy:deploy': () => Promise<void>;
+  };
 
   constructor(serverless: Serverless, options: Options, utils: Utils) {
     this.serverless = serverless;
     this.options = options;
     this.log = utils.log;
+
+    this.hooks = {
+      // Make request in case that there are no aws request before deployment.
+      'before:deploy:deploy': this.runAwsRequest.bind(this),
+    };
 
     if (this.shouldRun()) {
       let assumed = false;
@@ -273,7 +283,12 @@ export default class ServerlessAssumeRole {
     };
   }
 
-  error(message?: string): Error {
+  private async runAwsRequest(): Promise<void> {
+    const accountId = await this.provider.getAccountId();
+    this.log.debug(`AWS accountId: ${accountId}`);
+  }
+
+  private error(message?: string): Error {
     return new this.serverless.classes.Error(message);
   }
 }

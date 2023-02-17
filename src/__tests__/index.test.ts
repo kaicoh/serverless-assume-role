@@ -9,7 +9,10 @@ describe('ServerlessAssumeRole', () => {
     region: 'local',
   });
   const utils: Utils = {
-    log: { notice: jest.fn() },
+    log: {
+      debug: jest.fn(),
+      notice: jest.fn(),
+    },
   };
 
   describe('validation for configuration', () => {
@@ -240,6 +243,7 @@ describe('ServerlessAssumeRole', () => {
     beforeEach(() => {
       mockAwsProvider = {
         getCredentials: () => ({}),
+        getAccountId: jest.fn().mockReturnValue(Promise.resolve('00000')),
         request: jest.fn(async () => await Promise.resolve(output)),
       };
 
@@ -273,6 +277,14 @@ describe('ServerlessAssumeRole', () => {
       await plugin.provider.request('foo', 'bar', {});
       await plugin.provider.request('foo', 'bar', {});
       expect(mockAssumeRole).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls provider\'s getAccountId if the "before:deploy:deploy" hook is exected', async () => {
+      const plugin = init({});
+      expect(mockAssumeRole).not.toHaveBeenCalled();
+
+      await plugin.hooks['before:deploy:deploy']();
+      expect(mockAwsProvider.getAccountId).toHaveBeenCalled();
     });
 
     it('gets original outputs even if the aws provider is a proxy', async () => {
